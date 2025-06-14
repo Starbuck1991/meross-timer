@@ -1,5 +1,4 @@
-Flask==2.3.3
-meross-iot==0.4.6.2
-pytz==2023.3
-aiohttp==3.8.6
-
+Flask==3.0.0
+meross-iot==0.4.7.0
+pytz==2024.1
+aiohttp==3.10.11
