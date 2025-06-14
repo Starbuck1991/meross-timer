@@ -1,0 +1,10 @@
+Flex Launcher version 2.2, using:
+  SDL       2.30.8
+  SDL_image 2.8.2
+  SDL_ttf   2.22.0
+
+Build date: Nov 24 2024
+Compiler:   Microsoft C/C++ 19.42
+
+Could not initialize font from config file
+Could not initialize font from config file

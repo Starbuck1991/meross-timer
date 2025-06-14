@@ -1,0 +1,84 @@
+v2.2 (2024-11-24)
+- Make application timeout configurable
+- Add WrapEntries feature
+- Various fixes, optimizations, and code quality improvements
+- Windows: Improve logic relating to handling of launched applications (focus issues, etc.)
+- Linux: Don't set SDL_VIDEODRIVER environment variable
+
+v2.1 (2023-1-7)
+- Added OnLaunch 'Quit' mode
+
+v2.0 (2022-12-19)
+- Change application tracking to window focus-based instead of process based
+- Remove OnLaunch "Hide" mode
+- Reorganize configuration file into smaller sections
+- Make VSync optional
+- Add support for transparent backgrounds
+- Allow control from multiple gamepads
+- Allow unlimited number of slideshow backgrounds
+- Make highlight optional
+- Make application titles optional
+- Specify color and key HEX codes with string beginning with # character
+- Rename ButtonCenterline setting to VCenter
+- Create dialog box on fatal errors
+- Linux: Prefer native Wayland over XWayland
+
+v1.8 (2022-10-7)
+- Added inhibit OS screensaver feature
+- Minor bugfixes
+- Windows: Added "chrome_proxy.exe" to the list of supported browser processes
+
+v1.7 (2022-5-30)
+- Added selected icons feature
+- Added StartupCmd and QuitCmd features
+- New getopt-based command line parsing
+
+v1.6.1 (2022-4-19)
+- Windows: Disable system DPI scaling
+
+v1.6 (2022-4-2)
+- Added background overlay feature
+- Added text shadows feature
+- Added outline configuration option for highlight
+- Added scroll indicator outline configuration option
+- Fixed bug where an unmapped controller won't automatically connect upon startup
+
+v1.5 (2022-2-28)
+- Added :fork special command
+- Enabled VSync
+- Added MouseSelect setting for gyroscopic mouse support
+- Windows: Added exit hotkey feature
+- Windows: The :sleep special command now properly sleeps the PC instead of hibernating it
+
+v1.4 (2022-2-5)
+- Added clock widget to show the current time and date
+- Windows: Full Unicode support implemented
+- Linux: Changed .desktop file action delimiting character from pipe | to semicolon ;
+
+v1.3 (2022-1-13)
+- Added hotkeys feature
+- Removed EscQuit setting. Esc to quit functionality is now implemented as a configurable hotkey
+- Changed slideshow time units from milliseconds to seconds
+- Windows: Applications now launch via WIN32 API instead of the standard C runtime
+- Windows: Implemented OnLaunch setting that was previously Linux exclusive
+- Windows: Fixed web browser non-blocking issue
+- Linux: Improved Wayland support
+
+v1.2 (2022-1-2)
+- Added slideshow background mode
+- Added screensaver feature
+- Windows: Improved Unicode support
+
+v1.1 (2021-12-24)
+- Added logging interface
+- Linux: Added OnLaunch setting
+- Changed all RGBA color settings to RGB for simplicity. Transparency is now set solely in the separate opacity setting
+- Refactored automatic file searching logic
+
+v1.0.1 (2021-12-4)
+- Added support for WebP images
+- Improved handling of paths enclosed in quotes
+- Windows: Added application icon to executable
+
+v1.0 (2021-11-28)
+- Initial release
