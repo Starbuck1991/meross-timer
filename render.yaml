@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: meross-timer
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python temporizador.py
+    envVars:
+      - key: MEROSS_EMAIL
+        sync: false
+      - key: MEROSS_PASSWORD
+        sync: false
+      - key: MEROSS_API_KEY
+        sync: false
+
