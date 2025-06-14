@@ -461,6 +461,59 @@ function Show-ShutdownWarning {
     }
 }
 
+# Schedule-KodiPlexShutdown: Programa apagado de KodiPlex antes del apagado del PC
+function Schedule-KodiPlexShutdown {
+    param (
+        [int]$DelayMinutes = 1,
+        [string]$ApiKey = "Apollo1991!"
+    )
+    
+    try {
+        Write-Log "🔌 Programando apagado de KodiPlex en $DelayMinutes minuto(s)..."
+        
+        # Buscar el script control-meross.ps1 en el mismo directorio
+        $ControlMerossPath = Join-Path $ScriptPath "control-meross.ps1"
+        
+        if (-not (Test-Path $ControlMerossPath)) {
+            Write-Log "❌ Script control-meross.ps1 no encontrado en: $ControlMerossPath" "ERROR"
+            return $false
+        }
+        
+        # Ejecutar comando con timeout de 30 segundos
+        $process = Start-Process -FilePath "powershell.exe" -ArgumentList @(
+            "-ExecutionPolicy", "Bypass",
+            "-File", $ControlMerossPath,
+            "timer-off", "KodiPlex", $DelayMinutes,
+            "-ApiKey", $ApiKey
+        ) -Wait -PassThru -NoNewWindow -RedirectStandardOutput "$env:TEMP\kodiplex_output.txt" -RedirectStandardError "$env:TEMP\kodiplex_error.txt"
+        
+        # Verificar resultado
+        if ($process.ExitCode -eq 0) {
+            $output = Get-Content "$env:TEMP\kodiplex_output.txt" -ErrorAction SilentlyContinue
+            if ($output -match "✅.*programado|success") {
+                Write-Log "✅ KodiPlex programado para apagarse en $DelayMinutes minuto(s)"
+                return $true
+            } else {
+                Write-Log "⚠️ KodiPlex: Respuesta inesperada - $($output -join ' ')" "WARN"
+                return $false
+            }
+        } else {
+            $errorOutput = Get-Content "$env:TEMP\kodiplex_error.txt" -ErrorAction SilentlyContinue
+            Write-Log "❌ Error programando KodiPlex (Exit: $($process.ExitCode)): $($errorOutput -join ' ')" "ERROR"
+            return $false
+        }
+    }
+    catch {
+        Write-Log "💥 Excepción programando KodiPlex: $($_.Exception.Message)" "ERROR"
+        return $false
+    }
+    finally {
+        # Limpiar archivos temporales
+        Remove-Item "$env:TEMP\kodiplex_output.txt" -ErrorAction SilentlyContinue
+        Remove-Item "$env:TEMP\kodiplex_error.txt" -ErrorAction SilentlyContinue
+    }
+}
+
 # Registrar inicio de ejecución
 Write-Log "=== INICIANDO VERIFICACIÓN DE APAGADO AUTOMÁTICO ==="
 Write-Log "Configuración: Inactividad $IdleThresholdMinutes min, Red $NetworkThresholdKB KB en $NetworkIntervalMinutes min"
@@ -642,14 +695,25 @@ try {
         Write-Log "=== VERIFICACIÓN COMPLETADA (APAGANDO) ==="
         Add-ContentSafe -Path $LogFile -Value ""
         
-        # Usar notificación interactiva
-        if (Show-ShutdownWarning -Seconds $ShutdownWarningSeconds) {
-            Stop-Computer -Force -ErrorAction Stop
-        } else {
-            Write-Log "Apagado cancelado por interacción del usuario"
-            Add-ContentSafe -Path $LogFile -Value ""
-            return
-        }
+    # Usar notificación interactiva
+    if (Show-ShutdownWarning -Seconds $ShutdownWarningSeconds) {
+    # Programar apagado de KodiPlex ANTES del apagado del PC
+    $kodiPlexScheduled = Schedule-KodiPlexShutdown -DelayMinutes 1 -ApiKey "Apollo1991!"
+    
+    if ($kodiPlexScheduled) {
+        Write-Log "✅ KodiPlex programado correctamente. Procediendo con apagado del PC."
+        # Esperar 2 segundos para asegurar que la programación se completó
+        Start-Sleep -Seconds 2
+    } else {
+        Write-Log "⚠️ No se pudo programar KodiPlex, pero continuando con apagado del PC" "WARN"
+    }
+    
+    Stop-Computer -Force -ErrorAction Stop
+} else {
+    Write-Log "Apagado cancelado por interacción del usuario"
+    Add-ContentSafe -Path $LogFile -Value ""
+    return
+}
     }
     else {
         Write-Log "Condiciones no cumplidas. El equipo permanecerá encendido."
