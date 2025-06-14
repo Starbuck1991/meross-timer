@@ -469,13 +469,13 @@ function Schedule-KodiPlexShutdown {
     )
     
     try {
-        Write-Log "🔌 Programando apagado de KodiPlex en $DelayMinutes minuto(s)..."
+        Write-Log "[KODIPLEX] Programando apagado de KodiPlex en $DelayMinutes minuto(s)..."
         
         # Buscar el script control-meross.ps1 en el mismo directorio
         $ControlMerossPath = Join-Path $ScriptPath "control-meross.ps1"
         
         if (-not (Test-Path $ControlMerossPath)) {
-            Write-Log "❌ Script control-meross.ps1 no encontrado en: $ControlMerossPath" "ERROR"
+            Write-Log "[KODIPLEX] ERROR: Script control-meross.ps1 no encontrado en: $ControlMerossPath" "ERROR"
             return $false
         }
         
@@ -490,21 +490,21 @@ function Schedule-KodiPlexShutdown {
         # Verificar resultado
         if ($process.ExitCode -eq 0) {
             $output = Get-Content "$env:TEMP\kodiplex_output.txt" -ErrorAction SilentlyContinue
-            if ($output -match "✅.*programado|success") {
-                Write-Log "✅ KodiPlex programado para apagarse en $DelayMinutes minuto(s)"
+            if ($output -match "programado|success|timer.*set") {
+                Write-Log "[KODIPLEX] SUCCESS: KodiPlex programado para apagarse en $DelayMinutes minuto(s)"
                 return $true
             } else {
-                Write-Log "⚠️ KodiPlex: Respuesta inesperada - $($output -join ' ')" "WARN"
+                Write-Log "[KODIPLEX] WARN: Respuesta inesperada - $($output -join ' ')" "WARN"
                 return $false
             }
         } else {
             $errorOutput = Get-Content "$env:TEMP\kodiplex_error.txt" -ErrorAction SilentlyContinue
-            Write-Log "❌ Error programando KodiPlex (Exit: $($process.ExitCode)): $($errorOutput -join ' ')" "ERROR"
+            Write-Log "[KODIPLEX] ERROR: Error programando KodiPlex (Exit: $($process.ExitCode)): $($errorOutput -join ' ')" "ERROR"
             return $false
         }
     }
     catch {
-        Write-Log "💥 Excepción programando KodiPlex: $($_.Exception.Message)" "ERROR"
+        Write-Log "[KODIPLEX] EXCEPTION: Error programando KodiPlex: $($_.Exception.Message)" "ERROR"
         return $false
     }
     finally {
@@ -695,25 +695,25 @@ try {
         Write-Log "=== VERIFICACIÓN COMPLETADA (APAGANDO) ==="
         Add-ContentSafe -Path $LogFile -Value ""
         
-    # Usar notificación interactiva
-    if (Show-ShutdownWarning -Seconds $ShutdownWarningSeconds) {
-    # Programar apagado de KodiPlex ANTES del apagado del PC
-    $kodiPlexScheduled = Schedule-KodiPlexShutdown -DelayMinutes 1 -ApiKey "Apollo1991!"
-    
-    if ($kodiPlexScheduled) {
-        Write-Log "✅ KodiPlex programado correctamente. Procediendo con apagado del PC."
-        # Esperar 2 segundos para asegurar que la programación se completó
-        Start-Sleep -Seconds 2
-    } else {
-        Write-Log "⚠️ No se pudo programar KodiPlex, pero continuando con apagado del PC" "WARN"
-    }
-    
-    Stop-Computer -Force -ErrorAction Stop
-} else {
-    Write-Log "Apagado cancelado por interacción del usuario"
-    Add-ContentSafe -Path $LogFile -Value ""
-    return
-}
+        # Usar notificación interactiva
+        if (Show-ShutdownWarning -Seconds $ShutdownWarningSeconds) {
+            # Programar apagado de KodiPlex ANTES del apagado del PC
+            $kodiPlexScheduled = Schedule-KodiPlexShutdown -DelayMinutes 1 -ApiKey "Apollo1991!"
+            
+            if ($kodiPlexScheduled) {
+                Write-Log "SUCCESS: KodiPlex programado correctamente. Procediendo con apagado del PC."
+                # Esperar 2 segundos para asegurar que la programación se completó
+                Start-Sleep -Seconds 2
+            } else {
+                Write-Log "WARNING: No se pudo programar KodiPlex, pero continuando con apagado del PC" "WARN"
+            }
+            
+            Stop-Computer -Force -ErrorAction Stop
+        } else {
+            Write-Log "Apagado cancelado por interacción del usuario"
+            Add-ContentSafe -Path $LogFile -Value ""
+            return
+        }
     }
     else {
         Write-Log "Condiciones no cumplidas. El equipo permanecerá encendido."
