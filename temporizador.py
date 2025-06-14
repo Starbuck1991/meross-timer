@@ -29,14 +29,14 @@ async def control_device_meross_iot(email, password, device_name, action, job_id
         try:
             log_message(f"🔧 [{job_id}] Intento {attempt + 1}/{max_retries} - Controlando {device_name} -> {action}")
             
-            # Conectar con meross-iot
+            # Conectar con meross-iot - API corregida para v0.4.9.0
             http_api_client = await MerossHttpClient.async_from_user_password(
+                api_base_url='https://iotx-eu.meross.com',
                 email=email, 
-                password=password,
-                api_base_url='https://iotx-eu.meross.com'
+                password=password
             )
             log_message(f"✅ [{job_id}] Login exitoso con meross-iot")
-
+            
             # Manager
             manager = MerossManager(http_client=http_api_client)
             await manager.async_init()
@@ -333,8 +333,6 @@ def kodiplex_off_quick(minutes):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# ... (código anterior hasta kodiplex_on_quick) ...
-
 @app.route('/kodiplex/on/<int:minutes>', methods=['GET'])
 def kodiplex_on_quick(minutes):
     """Atajo rápido: GET /kodiplex/on/30"""
@@ -453,11 +451,11 @@ async def test_meross_connection(email, password, job_id):
     try:
         log_message(f"🧪 [{job_id}] Probando conexión con Meross...")
         
-        # Conectar
+        # Conectar - API corregida para v0.4.9.0
         http_api_client = await MerossHttpClient.async_from_user_password(
+            api_base_url='https://iotx-eu.meross.com',
             email=email, 
-            password=password,
-            api_base_url='https://iotx-eu.meross.com'
+            password=password
         )
         log_message(f"✅ [{job_id}] Login exitoso")
         
