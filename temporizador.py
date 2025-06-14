@@ -43,19 +43,21 @@ def generate_mobile_headers():
         'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
         'Accept-Encoding': 'gzip, deflate',
         'Connection': 'keep-alive',
-        'X-Requested-With': 'com.meross.meross',
         'Content-Type': 'application/json; charset=UTF-8',
         'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache',
-        'X-Session-ID': session_id,
-        'X-Device-Type': 'android',
-        'X-App-Version': '4.4.6',
-        'X-OS-Version': '11',
-        'X-Device-Model': 'SM-G973F'
+        'Pragma': 'no-cache'
     }
 
-class SimpleMobileClient:
-    """Cliente móvil simplificado usando requests"""
+def generate_nonce():
+    """Generar nonce aleatorio"""
+    return ''.join(random.choices(string.ascii_lowercase + string.digits, k=16))
+
+def encode_password(password, nonce):
+    """Codificar password con MD5 como hace la app real"""
+    return hashlib.md5((password + nonce).encode()).hexdigest()
+
+class MerossRealClient:
+    """Cliente que usa la API real de Meross"""
     
     def __init__(self, email, password):
         self.email = email
@@ -71,39 +73,31 @@ class SimpleMobileClient:
         self.session.headers.update(self.headers)
         self.session.timeout = 30
     
-    def mobile_login(self):
-        """Login simulando app móvil"""
-        timestamp = int(time.time())
-        nonce = ''.join(random.choices(string.ascii_lowercase + string.digits, k=16))
+    def login(self):
+        """Login con la API real de Meross"""
+        nonce = generate_nonce()
+        encoded_password = encode_password(self.password, nonce)
         
         login_data = {
             'email': self.email,
-            'password': self.password,
-            'encryption': 1,
-            'mobileInfo': {
-                'uuid': self.headers['X-Session-ID'],
-                'vendor': 'Samsung',
-                'model': 'SM-G973F',
-                'osVersion': '11',
-                'appVersion': '4.4.6',
-                'carrier': 'WiFi',
-                'language': 'es_ES',
-                'timezone': 'Europe/Madrid'
-            },
-            'timestamp': timestamp,
+            'password': encoded_password,
             'nonce': nonce
         }
         
         try:
+            log_message(f"🔐 Intentando login con API real de Meross...")
+            
             response = self.session.post(
-                f'{self.base_url}/v1/Auth/Login',
+                f'{self.base_url}/v1/Auth/signIn',
                 json=login_data,
-                headers={'X-Timestamp': str(timestamp)},
                 timeout=30
             )
             
+            log_message(f"📡 Login response status: {response.status_code}")
+            
             if response.status_code == 200:
                 data = response.json()
+                log_message(f"📋 Login response data keys: {list(data.keys())}")
                 
                 if data.get('apiStatus') == 0:
                     auth_data = data.get('data', {})
@@ -111,81 +105,107 @@ class SimpleMobileClient:
                     self.key = auth_data.get('key')
                     self.user_id = auth_data.get('userid')
                     
+                    log_message(f"✅ Login exitoso - Token: {self.token[:20] if self.token else 'None'}...")
+                    
                     # Actualizar headers con token
-                    self.session.headers['Authorization'] = f'Basic {self.token}'
+                    if self.token:
+                        self.session.headers['Authorization'] = f'Basic {self.token}'
                     
                     return True
                 else:
                     error_msg = data.get('info', 'Login failed')
+                    log_message(f"❌ Login API error: {error_msg}")
                     raise Exception(f"Login API error: {error_msg}")
             else:
-                raise Exception(f"HTTP {response.status_code}: {response.text}")
+                error_text = response.text
+                log_message(f"❌ HTTP {response.status_code}: {error_text}")
+                raise Exception(f"HTTP {response.status_code}: {error_text}")
                 
         except Exception as e:
-            raise Exception(f"Mobile login failed: {str(e)}")
+            log_message(f"💥 Login failed: {str(e)}")
+            raise Exception(f"Login failed: {str(e)}")
     
-    def get_devices_mobile(self):
-        """Obtener dispositivos con API móvil"""
+    def get_devices(self):
+        """Obtener dispositivos con la API real"""
         if not self.token:
             raise Exception("No authenticated")
         
-        timestamp = int(time.time())
-        
         try:
+            log_message(f"📱 Obteniendo lista de dispositivos...")
+            
             response = self.session.post(
                 f'{self.base_url}/v1/Device/devList',
-                json={'timestamp': timestamp},
-                headers={'X-Timestamp': str(timestamp)},
+                json={},
                 timeout=30
             )
             
+            log_message(f"📡 Devices response status: {response.status_code}")
+            
             if response.status_code == 200:
                 data = response.json()
+                log_message(f"📋 Devices response data keys: {list(data.keys())}")
+                
                 if data.get('apiStatus') == 0:
-                    return data.get('data', [])
+                    devices = data.get('data', [])
+                    log_message(f"📱 {len(devices)} dispositivos encontrados")
+                    return devices
                 else:
-                    raise Exception(f"Device list error: {data.get('info')}")
+                    error_msg = data.get('info', 'Device list failed')
+                    log_message(f"❌ Device list error: {error_msg}")
+                    raise Exception(f"Device list error: {error_msg}")
             else:
-                raise Exception(f"HTTP {response.status_code}")
+                error_text = response.text
+                log_message(f"❌ HTTP {response.status_code}: {error_text}")
+                raise Exception(f"HTTP {response.status_code}: {error_text}")
                 
         except Exception as e:
+            log_message(f"💥 Get devices failed: {str(e)}")
             raise Exception(f"Get devices failed: {str(e)}")
     
-    def control_device_mobile(self, device_uuid, command):
-        """Controlar dispositivo con API móvil"""
+    def control_device(self, device_uuid, command):
+        """Controlar dispositivo con la API real"""
         if not self.token:
             raise Exception("No authenticated")
-        
-        timestamp = int(time.time())
         
         control_data = {
             'uuid': device_uuid,
-            'command': command,
-            'timestamp': timestamp
+            'command': command
         }
         
         try:
+            log_message(f"🎮 Enviando comando a dispositivo {device_uuid[:8]}...")
+            log_message(f"📋 Comando: {json.dumps(command, indent=2)}")
+            
             response = self.session.post(
                 f'{self.base_url}/v1/Device/controlByUuid',
                 json=control_data,
-                headers={'X-Timestamp': str(timestamp)},
                 timeout=30
             )
             
+            log_message(f"📡 Control response status: {response.status_code}")
+            
             if response.status_code == 200:
                 data = response.json()
+                log_message(f"📋 Control response: {data}")
+                
                 if data.get('apiStatus') == 0:
+                    log_message(f"✅ Control exitoso")
                     return True
                 else:
-                    raise Exception(f"Control error: {data.get('info')}")
+                    error_msg = data.get('info', 'Control failed')
+                    log_message(f"❌ Control error: {error_msg}")
+                    raise Exception(f"Control error: {error_msg}")
             else:
-                raise Exception(f"HTTP {response.status_code}")
+                error_text = response.text
+                log_message(f"❌ HTTP {response.status_code}: {error_text}")
+                raise Exception(f"HTTP {response.status_code}: {error_text}")
                 
         except Exception as e:
+            log_message(f"💥 Device control failed: {str(e)}")
             raise Exception(f"Device control failed: {str(e)}")
 
-def get_mobile_client_and_devices(email, password, job_id):
-    """Obtener cliente móvil y dispositivos con cache"""
+def get_meross_client_and_devices(email, password, job_id):
+    """Obtener cliente real y dispositivos con cache"""
     try:
         with _mobile_cache['lock']:
             now = datetime.now()
@@ -195,31 +215,32 @@ def get_mobile_client_and_devices(email, password, job_id):
                 _mobile_cache['last_update'] is not None and 
                 (now - _mobile_cache['last_update']).total_seconds() < 180):
                 
-                log_message(f"📱 [{job_id}] Usando sesión móvil cacheada")
+                log_message(f"📱 [{job_id}] Usando sesión cacheada")
                 
                 # Crear cliente temporal con datos cacheados
-                client = SimpleMobileClient(email, password)
+                client = MerossRealClient(email, password)
                 client.token = _mobile_cache['token']
                 client.key = _mobile_cache['key']
                 client.user_id = _mobile_cache['user_id']
-                client.session.headers['Authorization'] = f'Basic {client.token}'
+                if client.token:
+                    client.session.headers['Authorization'] = f'Basic {client.token}'
                 
                 return client, _mobile_cache['devices']
             
-            log_message(f"📱 [{job_id}] Creando nueva sesión móvil...")
+            log_message(f"📱 [{job_id}] Creando nueva sesión con API real...")
             
-            # Crear nuevo cliente móvil
-            client = SimpleMobileClient(email, password)
+            # Crear nuevo cliente
+            client = MerossRealClient(email, password)
             
-            # Login móvil
-            client.mobile_login()
-            log_message(f"✅ [{job_id}] Login móvil exitoso")
+            # Login
+            client.login()
+            log_message(f"✅ [{job_id}] Login exitoso")
             
             # Pequeña pausa para estabilizar
-            time.sleep(1)
+            time.sleep(2)
             
             # Obtener dispositivos
-            devices_data = client.get_devices_mobile()
+            devices_data = client.get_devices()
             log_message(f"📱 [{job_id}] {len(devices_data)} dispositivos encontrados")
             
             # Actualizar cache
@@ -232,18 +253,18 @@ def get_mobile_client_and_devices(email, password, job_id):
             return client, devices_data
             
     except Exception as e:
-        log_message(f"💥 [{job_id}] Error en mobile client: {str(e)}")
+        log_message(f"💥 [{job_id}] Error en cliente real: {str(e)}")
         raise
 
-def control_device_mobile(email, password, device_name, action, job_id, max_retries=2):
-    """Control de dispositivo con API móvil simplificada"""
+def control_device_real(email, password, device_name, action, job_id, max_retries=2):
+    """Control de dispositivo con API real de Meross"""
     
     for attempt in range(max_retries):
         try:
-            log_message(f"📱 [{job_id}] Intento {attempt + 1}/{max_retries} - Control móvil {device_name} -> {action}")
+            log_message(f"🎮 [{job_id}] Intento {attempt + 1}/{max_retries} - Control real {device_name} -> {action}")
             
-            # Obtener cliente móvil y dispositivos
-            client, devices_data = get_mobile_client_and_devices(email, password, job_id)
+            # Obtener cliente y dispositivos
+            client, devices_data = get_meross_client_and_devices(email, password, job_id)
             
             # Buscar dispositivo
             target_device = None
@@ -263,13 +284,16 @@ def control_device_mobile(email, password, device_name, action, job_id, max_retr
             device_uuid = target_device.get('uuid')
             device_type = target_device.get('deviceType', '')
             
-            log_message(f"📱 [{job_id}] Dispositivo encontrado: {target_device.get('devName')} (UUID: {device_uuid[:8]}...)")
+            log_message(f"🎯 [{job_id}] Dispositivo encontrado: {target_device.get('devName')} (UUID: {device_uuid[:8]}...)")
+            log_message(f"📋 [{job_id}] Tipo: {device_type}")
             
             # Preparar comando según el tipo de dispositivo
+            message_id = f"msg_{int(time.time())}_{random.randint(1000, 9999)}"
+            
             if 'mss110' in device_type.lower() or 'plug' in device_type.lower():
                 command = {
                     "header": {
-                        "messageId": f"msg_{int(time.time())}",
+                        "messageId": message_id,
                         "method": "SET",
                         "namespace": "Appliance.Control.ToggleX"
                     },
@@ -283,7 +307,7 @@ def control_device_mobile(email, password, device_name, action, job_id, max_retr
             else:
                 command = {
                     "header": {
-                        "messageId": f"msg_{int(time.time())}",
+                        "messageId": message_id,
                         "method": "SET",
                         "namespace": "Appliance.Control.Toggle"
                     },
@@ -295,22 +319,22 @@ def control_device_mobile(email, password, device_name, action, job_id, max_retr
                 }
             
             # Ejecutar comando
-            client.control_device_mobile(device_uuid, command)
+            client.control_device(device_uuid, command)
             
-            log_message(f"✅ [{job_id}] Control móvil exitoso: {target_device.get('devName')} -> {action}")
+            log_message(f"✅ [{job_id}] Control real exitoso: {target_device.get('devName')} -> {action}")
             
             return {
                 "status": "success", 
-                "message": f"Acción '{action}' ejecutada en {target_device.get('devName')} via API móvil"
+                "message": f"Acción '{action}' ejecutada en {target_device.get('devName')} via API real"
             }
             
         except Exception as e:
             error_msg = str(e)
-            log_message(f"💥 [{job_id}] Error en intento móvil {attempt + 1}: {error_msg}")
+            log_message(f"💥 [{job_id}] Error en intento real {attempt + 1}: {error_msg}")
             
             # Limpiar cache en caso de error de autenticación
-            if any(keyword in error_msg.lower() for keyword in ['auth', 'token', 'login', 'mfa']):
-                log_message(f"🔄 [{job_id}] Error de autenticación, limpiando cache móvil...")
+            if any(keyword in error_msg.lower() for keyword in ['auth', 'token', 'login', 'unauthorized', '401']):
+                log_message(f"🔄 [{job_id}] Error de autenticación, limpiando cache...")
                 with _mobile_cache['lock']:
                     _mobile_cache.update({
                         'token': None, 'devices': None, 'key': None,
@@ -318,13 +342,13 @@ def control_device_mobile(email, password, device_name, action, job_id, max_retr
                     })
             
             if attempt < max_retries - 1:
-                wait_time = (attempt + 1) * 25
-                log_message(f"⏳ [{job_id}] Esperando {wait_time} segundos antes del siguiente intento móvil...")
+                wait_time = (attempt + 1) * 30
+                log_message(f"⏳ [{job_id}] Esperando {wait_time} segundos antes del siguiente intento...")
                 time.sleep(wait_time)
             else:
                 return {
                     "status": "error", 
-                    "message": f"Error después de {max_retries} intentos móviles: {error_msg}"
+                    "message": f"Error después de {max_retries} intentos: {error_msg}"
                 }
 
 def execute_delayed_task(email, password, device_name, action, minutes, job_id):
@@ -341,6 +365,7 @@ def execute_delayed_task(email, password, device_name, action, minutes, job_id):
             "status": "waiting"
         }
         
+        log_message(f"⏰ [{job_id}
         log_message(f"⏰ [{job_id}] Esperando {minutes} minutos...")
         log_message(f"🕐 [{job_id}] Se ejecutará a las: {execution_time.strftime('%H:%M:%S')}")
         
@@ -354,11 +379,11 @@ def execute_delayed_task(email, password, device_name, action, minutes, job_id):
         
         # Actualizar estado
         active_tasks[job_id]["status"] = "executing"
-        log_message(f"🚀 [{job_id}] ¡Tiempo cumplido! Ejecutando acción móvil...")
+        log_message(f"🚀 [{job_id}] ¡Tiempo cumplido! Ejecutando acción real...")
         
-        # Ejecutar la acción con API móvil
-        result = control_device_mobile(email, password, device_name, action, job_id)
-        log_message(f"🎯 [{job_id}] Resultado móvil: {result}")
+        # Ejecutar la acción con API real
+        result = control_device_real(email, password, device_name, action, job_id)
+        log_message(f"🎯 [{job_id}] Resultado real: {result}")
         
         # Actualizar estado final
         active_tasks[job_id]["status"] = "completed"
@@ -387,7 +412,7 @@ def get_status():
             "timestamp": now_spain.isoformat(),
             "system": "Render deployment",
             "platform": "render",
-            "api_version": "mobile_simple_v2.1"
+            "api_version": "real_api_v3.0"
         })
     except Exception as e:
         return jsonify({
@@ -422,7 +447,7 @@ def get_jobs():
                     "status": task.get('status', 'unknown'),
                     "remaining_minutes": remaining_minutes,
                     "remaining_seconds": remaining_seconds,
-                    "api_type": "mobile_simple"
+                    "api_type": "real_api"
                 }
                 
                 # Agregar información adicional según el estado
@@ -444,7 +469,7 @@ def get_jobs():
                     "remaining_minutes": 0,
                     "remaining_seconds": 0,
                     "error": f"Error parsing job data: {str(e)}",
-                    "api_type": "mobile_simple"
+                    "api_type": "real_api"
                 })
         
         return jsonify({
@@ -453,7 +478,7 @@ def get_jobs():
             "jobs": jobs_info,
             "spain_time": now_spain.strftime('%H:%M:%S %d/%m/%Y %Z'),
             "timestamp": now_spain.isoformat(),
-            "api_version": "mobile_simple_v2.1"
+            "api_version": "real_api_v3.0"
         })
         
     except Exception as e:
@@ -494,7 +519,7 @@ def set_timer():
         now = datetime.now(SPAIN_TZ)
         job_id = f"{device_name}_{action}_{now.strftime('%Y%m%d_%H%M%S')}"
         
-        log_message(f"📱 Programando (API móvil simple): {device_name} -> {action} en {minutes} minutos")
+        log_message(f"📱 Programando (API real): {device_name} -> {action} en {minutes} minutos")
         
         # Ejecutar en hilo separado para no bloquear la respuesta HTTP
         thread = threading.Thread(
@@ -508,12 +533,12 @@ def set_timer():
         
         return jsonify({
             "status": "success",
-            "message": f"Programado {action} en {device_name} después de {minutes} minutos (API móvil simple)",
+            "message": f"Programado {action} en {device_name} después de {minutes} minutos (API real)",
             "job_id": job_id,
             "execution_time": execution_time.isoformat(),
             "execution_time_spain": execution_time.strftime('%H:%M:%S %d/%m/%Y'),
             "platform": "render",
-            "api_type": "mobile_simple"
+            "api_type": "real_api"
         })
         
     except Exception as e:
@@ -559,7 +584,7 @@ def cancel_job():
 
 @app.route('/clear-cache', methods=['POST'])
 def clear_cache():
-    """Limpiar cache móvil manualmente"""
+    """Limpiar cache manualmente"""
     try:
         data = request.get_json()
         api_key = data.get('api_key')
@@ -574,18 +599,18 @@ def clear_cache():
                 'user_id': None, 'last_update': None, 'session_id': None
             })
             
-        log_message("✅ Cache móvil simple limpiado manualmente")
+        log_message("✅ Cache limpiado manualmente")
         return jsonify({
             "status": "success",
-            "message": "Cache móvil simple limpiado exitosamente"
+            "message": "Cache limpiado exitosamente"
         })
         
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-@app.route('/test-mobile', methods=['POST'])
-def test_mobile_connection():
-    """Probar conexión móvil sin ejecutar acciones"""
+@app.route('/test-connection', methods=['POST'])
+def test_connection():
+    """Probar conexión sin ejecutar acciones"""
     try:
         data = request.get_json()
         api_key = data.get('api_key')
@@ -604,10 +629,10 @@ def test_mobile_connection():
             }), 500
         
         # Crear job_id temporal para logs
-        test_job_id = f"test_mobile_{datetime.now(SPAIN_TZ).strftime('%H%M%S')}"
+        test_job_id = f"test_connection_{datetime.now(SPAIN_TZ).strftime('%H%M%S')}"
         
         try:
-            client, devices_data = get_mobile_client_and_devices(email, password, test_job_id)
+            client, devices_data = get_meross_client_and_devices(email, password, test_job_id)
             device_list = []
             
             for device_info in devices_data:
@@ -620,16 +645,16 @@ def test_mobile_connection():
             
             return jsonify({
                 "status": "success",
-                "message": "Conexión móvil simple exitosa",
+                "message": "Conexión API real exitosa",
                 "devices_found": len(devices_data),
                 "devices": device_list,
-                "api_type": "mobile_simple"
+                "api_type": "real_api"
             })
         except Exception as e:
             return jsonify({
                 "status": "error",
-                "message": f"Error de conexión móvil simple: {str(e)}",
-                "api_type": "mobile_simple"
+                "message": f"Error de conexión API real: {str(e)}",
+                "api_type": "real_api"
             })
             
     except Exception as e:
@@ -640,25 +665,25 @@ def health_check():
     """Health check endpoint para Render"""
     return jsonify({
         "status": "healthy",
-        "service": "Meross Timer API Mobile Simple v2.1",
+        "service": "Meross Timer API Real v3.0",
         "platform": "render",
         "timestamp": datetime.now(SPAIN_TZ).isoformat(),
-        "api_type": "mobile_simple",
+        "api_type": "real_api",
         "features": [
-            "Mobile API simulation (requests only)",
-            "Android headers spoofing", 
-            "Simple session management",
+            "Real Meross API integration",
+            "Proper authentication with MD5 encoding", 
+            "Correct API endpoints",
             "Timer scheduling",
             "Job management", 
             "Connection caching",
             "Error recovery",
             "Manual cache clearing",
-            "Mobile connection testing",
+            "Connection testing",
             "Python 3.13 compatible"
         ]
     })
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    log_message(f"📱 Iniciando Meross Timer API Mobile Simple v2.1 en puerto {port}")
+    log_message(f"📱 Iniciando Meross Timer API Real v3.0 en puerto {port}")
     app.run(host='0.0.0.0', port=port)
