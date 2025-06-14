@@ -686,3 +686,105 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     log_message(f"📱 Iniciando Meross Timer API Real v3.0 en puerto {port}")
     app.run(host='0.0.0.0', port=port)
+
+from flask import Flask, request, jsonify
+import os, time, uuid, hashlib, requests
+
+app = Flask(__name__)
+
+# ————— MerossClient ultraligero ——————
+BASE_URL = "https://iotx-eu.meross.com/v1"
+
+def md5_str(s: str) -> str:
+    return hashlib.md5(s.encode("utf-8")).hexdigest()
+
+class MerossClient:
+    def __init__(self, email, password):
+        self.email = email
+        self.password = password
+        self.token = None
+        self.user_id = None
+        self.s = requests.Session()
+
+    def login(self):
+        ts = int(time.time())
+        nonce = uuid.uuid4().hex[:8]
+        pwd_md5 = md5_str(self.password)
+        sign = md5_str(f"{self.email}{pwd_md5}{ts}{nonce}")
+        body = {
+            "email": self.email,
+            "password": pwd_md5,
+            "timestamp": ts,
+            "sign": sign,
+            "nonce": nonce
+        }
+        print("→ LOGIN REQ:", body)
+        resp = self.s.post(f"{BASE_URL}/Auth/signIn", json=body)
+        print("← LOGIN RESP:", resp.status_code, resp.text)
+        data = resp.json().get("data", {})
+        self.token = data.get("token")
+        self.user_id = data.get("userId")
+        if not self.token or not self.user_id:
+            raise RuntimeError("Login failed")
+
+    def list_devices(self):
+        ts = int(time.time())
+        hdr = {"Authorization": self.token}
+        body = {"timestamp": ts, "userId": self.user_id}
+        print("→ DEVLIST REQ:", body)
+        resp = self.s.post(f"{BASE_URL}/Device/devList", json=body, headers=hdr)
+        print("← DEVLIST RESP:", resp.status_code, resp.text)
+        return resp.json()
+
+    def control(self, device_id, on):
+        ts = int(time.time())
+        hdr = {"Authorization": self.token}
+        body = {
+            "header": {
+                "messageId": str(uuid.uuid4()),
+                "namespace": "Appliance.Control.ToggleX",
+                "method": "SET",
+                "payloadVersion": 1,
+                "timestamp": ts
+            },
+            "payload": {"deviceId": device_id, "channel": 0, "onoff": 1 if on else 0}
+        }
+        print("→ CONTROL REQ:", body)
+        resp = self.s.post(f"{BASE_URL}/Appliance.Control.ToggleX", json=body, headers=hdr)
+        print("← CONTROL RESP:", resp.status_code, resp.text)
+        return resp.json()
+
+# ————— Endpoint de debug ——————
+@app.route("/debug-meross", methods=["POST"])
+def debug_meross():
+    """
+    Body JSON:
+    {
+      "action": "on"|"off",
+      "device_id": "<uuid del dispositivo>"
+    }
+    """
+    email = os.getenv("MEROSS_EMAIL")
+    password = os.getenv("MEROSS_PASSWORD")
+    if not email or not password:
+        return jsonify(error="Faltan MEROSS_EMAIL o MEROSS_PASSWORD"), 400
+
+    payload = request.get_json() or {}
+    action = payload.get("action")
+    dev_id = payload.get("device_id")
+    if action not in ("on", "off") or not dev_id:
+        return jsonify(error="action debe ser 'on'|'off' y device_id válido"), 400
+
+    try:
+        cli = MerossClient(email, password)
+        cli.login()
+        cli.list_devices()
+        result = cli.control(device_id=dev_id, on=(action=="on"))
+        return jsonify(result=result)
+    except Exception as e:
+        return jsonify(error=str(e)), 500
+
+# ... el resto de tus endpoints /timer, /status, etc.
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
