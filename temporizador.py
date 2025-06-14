@@ -755,26 +755,36 @@ class MerossClient:
         return resp.json()
 
 # ————— Endpoint de debug ——————
-@app.route("/debug-meross", methods=["POST"])
+# … tus imports, MerossClient, otros endpoints …
+
+@app.route("/debug-meross", methods=["GET", "POST"])
 def debug_meross():
     """
-    Body JSON:
-    {
-      "action": "on"|"off",
-      "device_id": "<uuid del dispositivo>"
-    }
+    Soporta:
+      - GET  /debug-meross?action=on|off&device_id=<ID>
+      - POST /debug-meross  con JSON { action, device_id }
     """
+    # 1) lecturas de credenciales
     email = os.getenv("MEROSS_EMAIL")
     password = os.getenv("MEROSS_PASSWORD")
     if not email or not password:
         return jsonify(error="Faltan MEROSS_EMAIL o MEROSS_PASSWORD"), 400
 
-    payload = request.get_json() or {}
+    # 2) leer params según método
+    if request.method == "POST":
+        payload = request.get_json() or {}
+    else:  # GET
+        payload = {
+            "action": request.args.get("action"),
+            "device_id": request.args.get("device_id")
+        }
+
     action = payload.get("action")
     dev_id = payload.get("device_id")
     if action not in ("on", "off") or not dev_id:
-        return jsonify(error="action debe ser 'on'|'off' y device_id válido"), 400
+        return jsonify(error="action debe ser 'on'/'off' y device_id válido"), 400
 
+    # 3) lógica Meross
     try:
         cli = MerossClient(email, password)
         cli.login()
@@ -784,7 +794,3 @@ def debug_meross():
     except Exception as e:
         return jsonify(error=str(e)), 500
 
-# ... el resto de tus endpoints /timer, /status, etc.
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
