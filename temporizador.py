@@ -494,10 +494,14 @@ async def test_meross_connection(email, password, job_id):
         for device in devices:
             try:
                 await device.async_update()
+                # Convertir OnlineStatus a boolean
+                online_status = getattr(device, 'online_status', None)
+                is_online = online_status.value == 1 if online_status else True
+                
                 device_list.append({
                     "name": device.name,
                     "type": str(device.type),
-                    "online": getattr(device, 'online_status', True),
+                    "online": is_online,
                     "state": "on" if hasattr(device, 'is_on') and device.is_on() else "off"
                 })
             except Exception as e:
