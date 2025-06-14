@@ -1,178 +1,326 @@
 ﻿param(
-    [Parameter(Mandatory=$true)]
-    [string]$DeviceName,
-    
-    [Parameter(Mandatory=$true)]
-    [int]$TimerMinutes,
-    
-    [Parameter(Mandatory=$true)]
-    [ValidateSet("on", "off")]
+    [Parameter(Mandatory=$true, Position=0)]
+    [ValidateSet("status", "test", "on", "off", "timer-on", "timer-off", "jobs", "cancel", "help")]
     [string]$Action,
     
-    [string]$ApiKey = $env:MEROSS_API_KEY,
+    [Parameter(Position=1)]
+    [string]$Device = "KodiPlex",
     
-    # URL de Render (cambia por tu URL real)
-    [string]$ServerUrl = "https://meross-timer.onrender.com"
+    [Parameter(Position=2)]
+    [int]$Minutes = 0,
+    
+    [string]$JobId,
+    
+    [string]$ServerUrl = "https://meross-timer.onrender.com",
+    
+    [string]$ApiKey = $env:MEROSS_API_KEY
 )
 
-# Validaciones mejoradas
-if (-not $ApiKey) {
-    Write-Host "❌ Error: Variable de entorno MEROSS_API_KEY no configurada" -ForegroundColor Red
-    Write-Host "💡 Configúrala con: `$env:MEROSS_API_KEY = 'tu_clave_aqui'" -ForegroundColor Yellow
-    Write-Host "📝 O pásala como parámetro: -ApiKey 'tu_clave'" -ForegroundColor Cyan
-    exit 1
+# Colores para output
+function Write-Success { param($msg) Write-Host $msg -ForegroundColor Green }
+function Write-Error { param($msg) Write-Host $msg -ForegroundColor Red }
+function Write-Info { param($msg) Write-Host $msg -ForegroundColor Cyan }
+function Write-Warning { param($msg) Write-Host $msg -ForegroundColor Yellow }
+
+# Función para mostrar ayuda
+function Show-Help {
+    Write-Host @"
+🔌 MEROSS CONTROL - Script Unificado
+====================================
+
+USO:
+  .\meross-control.ps1 <accion> [dispositivo] [minutos] [opciones]
+
+ACCIONES DISPONIBLES:
+  status                    - Ver estado del servicio
+  test                      - Probar conexión y listar dispositivos
+  on <dispositivo>          - Encender dispositivo inmediatamente
+  off <dispositivo>         - Apagar dispositivo inmediatamente  
+  timer-on <dispositivo> <minutos>   - Encender dispositivo en X minutos
+  timer-off <dispositivo> <minutos>  - Apagar dispositivo en X minutos
+  jobs                      - Ver trabajos activos
+  cancel -JobId <id>        - Cancelar trabajo específico
+  help                      - Mostrar esta ayuda
+
+EJEMPLOS:
+  .\meross-control.ps1 status
+  .\meross-control.ps1 test
+  .\meross-control.ps1 on KodiPlex
+  .\meross-control.ps1 off HTPC
+  .\meross-control.ps1 timer-off KodiPlex 30
+  .\meross-control.ps1 timer-on Ambientador 60
+  .\meross-control.ps1 jobs
+  .\meross-control.ps1 cancel -JobId "KodiPlex_off_20250614_150000"
+
+DISPOSITIVOS DISPONIBLES:
+  - KodiPlex
+  - HTPC  
+  - Ambientador
+
+NOTAS:
+  - Variable de entorno MEROSS_API_KEY debe estar configurada
+  - Los tiempos están en minutos
+  - Usar comillas si el nombre del dispositivo tiene espacios
+"@ -ForegroundColor White
 }
 
-if ($TimerMinutes -lt 1) {
-    Write-Host "❌ Error: El tiempo mínimo es 1 minuto" -ForegroundColor Red
-    exit 1
+# Validar API Key para acciones que la requieren
+function Test-ApiKey {
+    if (-not $ApiKey -and $Action -in @("on", "off", "timer-on", "timer-off", "cancel")) {
+        Write-Error "❌ API Key requerida. Configure MEROSS_API_KEY o use -ApiKey"
+        Write-Warning "💡 Ejemplo: `$env:MEROSS_API_KEY = 'tu_clave_aqui'"
+        exit 1
+    }
 }
 
-if ($TimerMinutes -gt 1440) {
-    Write-Host "❌ Error: El tiempo máximo es 1440 minutos (24 horas)" -ForegroundColor Red
-    exit 1
-}
-
-# Mostrar información
-Write-Host "🕐 Programando temporizador con API Real de Meross..." -ForegroundColor Cyan
-Write-Host "🌐 Servidor Render: $ServerUrl" -ForegroundColor Gray
-Write-Host "📱 Dispositivo: $DeviceName" -ForegroundColor White
-Write-Host "⏱️  Tiempo: $TimerMinutes minutos" -ForegroundColor White
-Write-Host "🔌 Acción: $Action" -ForegroundColor White
-
-# Calcular tiempo de ejecución aproximado
-$executionTime = (Get-Date).AddMinutes($TimerMinutes)
-Write-Host "🕐 Se ejecutará aproximadamente: $($executionTime.ToString('HH:mm:ss dd/MM/yyyy'))" -ForegroundColor Yellow
-Write-Host ""
-
-# Preparar solicitud
-$url = "$ServerUrl/timer"
-$body = @{
-    device_name = $DeviceName
-    minutes = $TimerMinutes
-    action = $Action
-    api_key = $ApiKey
-} | ConvertTo-Json
-
-$headers = @{
-    'Content-Type' = 'application/json'
-    'User-Agent' = 'PowerShell-MerossTimer-Render/1.0'
-}
-
-try {
-    Write-Host "📡 Enviando solicitud al servidor Render..." -ForegroundColor Yellow
-    Write-Host "🔗 URL: $url" -ForegroundColor Gray
+# Función para hacer requests HTTP
+function Invoke-MerossApi {
+    param(
+        [string]$Endpoint,
+        [string]$Method = "GET",
+        [hashtable]$Body = $null,
+        [int]$TimeoutSec = 45
+    )
     
-    # Timeout más largo para Render (puede tardar en despertar)
-    $response = Invoke-RestMethod -Uri $url -Method Post -Body $body -Headers $headers -TimeoutSec 60
-    
-    if ($response.status -eq "success") {
-        Write-Host "✅ ¡Temporizador programado exitosamente!" -ForegroundColor Green
-        Write-Host ""
-        Write-Host "📋 Detalles:" -ForegroundColor Cyan
-        Write-Host "   🆔 Job ID: $($response.job_id)" -ForegroundColor White
+    try {
+        $uri = "$ServerUrl$Endpoint"
+        Write-Info "📡 $Method $uri"
         
-        if ($response.execution_time_spain) {
-            Write-Host "   🕐 Se ejecutará: $($response.execution_time_spain)" -ForegroundColor White
+        $params = @{
+            Uri = $uri
+            Method = $Method
+            TimeoutSec = $TimeoutSec
         }
         
-        Write-Host "   💬 $($response.message)" -ForegroundColor White
-        
-        if ($response.api_type) {
-            Write-Host "   🔧 API: $($response.api_type)" -ForegroundColor Magenta
+        if ($Body) {
+            $params.Body = ($Body | ConvertTo-Json)
+            $params.ContentType = "application/json"
         }
         
-        if ($response.platform) {
-            Write-Host "   🌐 Plataforma: $($response.platform)" -ForegroundColor Gray
-        }
-        
-        if ($response.note) {
-            Write-Host "   📝 Nota: $($response.note)" -ForegroundColor Yellow
-        }
-        
-        Write-Host ""
-        Write-Host "💡 Comandos útiles:" -ForegroundColor Cyan
-        Write-Host "   • Ver estado: .\check-status.ps1 -ServerUrl '$ServerUrl'" -ForegroundColor White
-        Write-Host "   • Ver trabajos: .\list-jobs.ps1 -ServerUrl '$ServerUrl'" -ForegroundColor White
-        Write-Host "   • Cancelar: .\cancel-job.ps1 -JobId '$($response.job_id)' -ServerUrl '$ServerUrl'" -ForegroundColor White
-        Write-Host "   • Probar conexión: .\test-connection.ps1 -ServerUrl '$ServerUrl'" -ForegroundColor White
-        
-        # Guardar configuración para scripts auxiliares
-        $config = @{
-            last_job_id = $response.job_id
-            server_url = $ServerUrl
-            timestamp = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
-        }
-        $config | ConvertTo-Json | Out-File -FilePath "meross-config.json" -Encoding UTF8
-        
-    } else {
-        Write-Host "❌ Error del servidor: $($response.message)" -ForegroundColor Red
-        if ($response.error) {
-            Write-Host "   Detalles: $($response.error)" -ForegroundColor Yellow
+        return Invoke-RestMethod @params
+    }
+    catch {
+        Write-Error "❌ Error de conexión: $($_.Exception.Message)"
+        if ($_.Exception.Message -like "*timeout*") {
+            Write-Warning "💡 Render puede tardar en responder la primera vez"
         }
         exit 1
     }
-    
-} catch {
-    Write-Host "💥 Error de conexión:" -ForegroundColor Red
-    Write-Host "   $($_.Exception.Message)" -ForegroundColor White
-    
-    # Manejo específico para Render
-    if ($_.Exception.Message -like "*timeout*") {
-        Write-Host ""
-        Write-Host "⏰ Timeout detectado - Posibles causas:" -ForegroundColor Yellow
-        Write-Host "   • El servicio de Render está 'dormido' y tardó en despertar" -ForegroundColor Cyan
-        Write-Host "   • Intenta de nuevo en unos segundos" -ForegroundColor Cyan
-        Write-Host "   • Render puede tardar hasta 30s en responder la primera vez" -ForegroundColor Cyan
-    }
-    
-    if ($_.Exception.Response) {
-        $statusCode = [int]$_.Exception.Response.StatusCode
-        Write-Host "   Código HTTP: $statusCode" -ForegroundColor Yellow
-        
-        # Mensajes específicos según código de error
-        switch ($statusCode) {
-            400 { Write-Host "   💡 Verifica los parámetros enviados" -ForegroundColor Cyan }
-            401 { Write-Host "   💡 Verifica tu API Key" -ForegroundColor Cyan }
-            404 { 
-                Write-Host "   💡 Verifica la URL del servidor Render" -ForegroundColor Cyan 
-                Write-Host "   💡 ¿Está correcta la URL? $ServerUrl" -ForegroundColor Yellow
-            }
-            500 { Write-Host "   💡 Error interno del servidor" -ForegroundColor Cyan }
-            503 { 
-                Write-Host "   💡 Servidor temporalmente no disponible" -ForegroundColor Cyan 
-                Write-Host "   💡 Render puede estar reiniciando el servicio" -ForegroundColor Yellow
-            }
-        }
-        
-        try {
-            $errorBody = $_.Exception.Response.GetResponseStream()
-            $reader = New-Object System.IO.StreamReader($errorBody)
-            $errorText = $reader.ReadToEnd()
-            $reader.Close()
-            
-            if ($errorText) {
-                $errorJson = $errorText | ConvertFrom-Json
-                if ($errorJson.message) {
-                    Write-Host "   Error del servidor: $($errorJson.message)" -ForegroundColor Red
-                }
-                if ($errorJson.error) {
-                    Write-Host "   Detalles: $($errorJson.error)" -ForegroundColor Yellow
-                }
-            }
-        } catch {
-            # Ignorar errores al leer el cuerpo de la respuesta
-        }
-    }
-    
-    Write-Host ""
-    Write-Host "🔧 Soluciones para Render:" -ForegroundColor Cyan
-    Write-Host "   • Verifica que la URL de Render sea correcta" -ForegroundColor White
-    Write-Host "   • Espera 30-60 segundos si el servicio estaba dormido" -ForegroundColor White
-    Write-Host "   • Prueba con: .\test-connection.ps1 -ServerUrl '$ServerUrl'" -ForegroundColor White
-    Write-Host "   • Verifica los logs en el dashboard de Render" -ForegroundColor White
-    
-    exit 1
 }
 
-Write-Host ""
+# Función para mostrar dispositivos
+function Show-Devices {
+    param($devices)
+    
+    if ($devices -and $devices.Count -gt 0) {
+        Write-Info "`n📋 Dispositivos disponibles:"
+        foreach ($device in $devices) {
+            $status = if ($device.online) { "🟢 Online" } else { "🔴 Offline" }
+            $state = if ($device.state -eq "on") { "🔌 Encendido" } else { "⚫ Apagado" }
+            Write-Host "   📱 $($device.name) ($($device.type)) - $status - $state" -ForegroundColor White
+        }
+    }
+}
+
+# Función para mostrar trabajos
+function Show-Jobs {
+    param($jobs)
+    
+    if ($jobs -and $jobs.Count -gt 0) {
+        Write-Info "`n⏰ Trabajos activos:"
+        foreach ($job in $jobs) {
+            $status_icon = switch ($job.status) {
+                "waiting" { "⏳" }
+                "executing" { "🚀" }
+                "completed" { "✅" }
+                "error" { "❌" }
+                default { "❓" }
+            }
+            
+            Write-Host "   $status_icon [$($job.id)] $($job.name)" -ForegroundColor White
+            Write-Host "      ⏰ Ejecutar: $($job.execution_time_spain)" -ForegroundColor Gray
+            Write-Host "      ⏱️  Faltan: $($job.remaining_minutes) min $($job.remaining_seconds % 60) seg" -ForegroundColor Gray
+            
+            if ($job.result) {
+                Write-Host "      ✅ Resultado: $($job.result.message)" -ForegroundColor Green
+            }
+            if ($job.error) {
+                Write-Host "      ❌ Error: $($job.error)" -ForegroundColor Red
+            }
+        }
+    } else {
+        Write-Info "📭 No hay trabajos activos"
+    }
+}
+
+# MAIN SCRIPT
+Write-Host "🔌 MEROSS CONTROL v1.0" -ForegroundColor Magenta
+Write-Host "🔗 $ServerUrl" -ForegroundColor Gray
+
+switch ($Action) {
+    "help" {
+        Show-Help
+        exit 0
+    }
+    
+    "status" {
+        Write-Info "📊 Consultando estado del servicio..."
+        $response = Invoke-MerossApi -Endpoint "/status"
+        
+        Write-Success "✅ Servicio activo"
+        Write-Host "   🕐 Hora España: $($response.spain_time)" -ForegroundColor White
+        Write-Host "   📊 Trabajos activos: $($response.active_jobs)" -ForegroundColor White
+        Write-Host "   🖥️  Plataforma: $($response.platform)" -ForegroundColor White
+    }
+    
+    "test" {
+        Write-Info "🧪 Probando conexión con API de Meross..."
+        
+        $body = if ($ApiKey) { @{ api_key = $ApiKey } } else { $null }
+        $method = if ($ApiKey) { "POST" } else { "GET" }
+        
+        $response = Invoke-MerossApi -Endpoint "/test-connection" -Method $method -Body $body
+        
+        if ($response.status -eq "success") {
+            Write-Success "✅ ¡Conexión exitosa!"
+            Write-Host "   💬 $($response.message)" -ForegroundColor White
+            Write-Host "   📱 Dispositivos encontrados: $($response.devices_found)" -ForegroundColor White
+            Show-Devices $response.devices
+        } else {
+            Write-Error "❌ Error: $($response.message)"
+        }
+    }
+    
+    "on" {
+        Test-ApiKey
+        Write-Info "🔌 Encendiendo $Device..."
+        
+        $response = Invoke-MerossApi -Endpoint "/timer" -Method "POST" -Body @{
+            device_name = $Device
+            action = "on"
+            minutes = 0
+            api_key = $ApiKey
+        }
+        
+        if ($response.status -eq "success") {
+            Write-Success "✅ $($response.message)"
+            Write-Host "   🆔 Job ID: $($response.job_id)" -ForegroundColor Gray
+        } else {
+            Write-Error "❌ Error: $($response.message)"
+        }
+    }
+    
+    "off" {
+        Test-ApiKey
+        Write-Info "⚫ Apagando $Device..."
+        
+        $response = Invoke-MerossApi -Endpoint "/timer" -Method "POST" -Body @{
+            device_name = $Device
+            action = "off"
+            minutes = 0
+            api_key = $ApiKey
+        }
+        
+        if ($response.status -eq "success") {
+            Write-Success "✅ $($response.message)"
+            Write-Host "   🆔 Job ID: $($response.job_id)" -ForegroundColor Gray
+        } else {
+            Write-Error "❌ Error: $($response.message)"
+        }
+    }
+    
+    "timer-on" {
+        Test-ApiKey
+        if ($Minutes -le 0) {
+            Write-Error "❌ Debe especificar minutos > 0"
+            Write-Warning "💡 Ejemplo: .\meross-control.ps1 timer-on KodiPlex 30"
+            exit 1
+        }
+        
+        Write-Info "⏰ Programando encendido de $Device en $Minutes minutos..."
+        
+        $response = Invoke-MerossApi -Endpoint "/timer" -Method "POST" -Body @{
+            device_name = $Device
+            action = "on"
+            minutes = $Minutes
+            api_key = $ApiKey
+        }
+        
+        if ($response.status -eq "success") {
+            Write-Success "✅ $($response.message)"
+            Write-Host "   🕐 Se ejecutará: $($response.execution_time_spain)" -ForegroundColor White
+            Write-Host "   🆔 Job ID: $($response.job_id)" -ForegroundColor Gray
+        } else {
+            Write-Error "❌ Error: $($response.message)"
+        }
+    }
+    
+    "timer-off" {
+        Test-ApiKey
+        if ($Minutes -le 0) {
+            Write-Error "❌ Debe especificar minutos > 0"
+            Write-Warning "💡 Ejemplo: .\meross-control.ps1 timer-off KodiPlex 30"
+            exit 1
+        }
+        
+        Write-Info "⏰ Programando apagado de $Device en $Minutes minutos..."
+        
+        $response = Invoke-MerossApi -Endpoint "/timer" -Method "POST" -Body @{
+            device_name = $Device
+            action = "off"
+            minutes = $Minutes
+            api_key = $ApiKey
+        }
+        
+        if ($response.status -eq "success") {
+            Write-Success "✅ $($response.message)"
+            Write-Host "   🕐 Se ejecutará: $($response.execution_time_spain)" -ForegroundColor White
+            Write-Host "   🆔 Job ID: $($response.job_id)" -ForegroundColor Gray
+        } else {
+            Write-Error "❌ Error: $($response.message)"
+        }
+    }
+    
+    "jobs" {
+        Write-Info "📋 Consultando trabajos activos..."
+        
+        $response = Invoke-MerossApi -Endpoint "/jobs"
+        
+        if ($response.status -eq "success") {
+            Write-Success "✅ Consulta exitosa"
+            Write-Host "   🕐 Hora España: $($response.spain_time)" -ForegroundColor White
+            Write-Host "   📊 Total trabajos: $($response.active_jobs)" -ForegroundColor White
+            Show-Jobs $response.jobs
+        } else {
+            Write-Error "❌ Error: $($response.message)"
+        }
+    }
+    
+    "cancel" {
+        Test-ApiKey
+        if (-not $JobId) {
+            Write-Error "❌ Debe especificar -JobId"
+            Write-Warning "💡 Ejemplo: .\meross-control.ps1 cancel -JobId 'KodiPlex_off_20250614_150000'"
+            exit 1
+        }
+        
+        Write-Info "❌ Cancelando trabajo $JobId..."
+        
+        $response = Invoke-MerossApi -Endpoint "/cancel-job" -Method "POST" -Body @{
+            job_id = $JobId
+            api_key = $ApiKey
+        }
+        
+        if ($response.status -eq "success") {
+            Write-Success "✅ $($response.message)"
+        } else {
+            Write-Error "❌ Error: $($response.message)"
+        }
+    }
+    
+    default {
+        Write-Error "❌ Acción no válida: $Action"
+        Write-Warning "💡 Use: .\meross-control.ps1 help"
+        exit 1
+    }
+}
