@@ -116,7 +116,8 @@ def execute_delayed_task(email, password, device_name, action, minutes, job_id):
         log_message(f"🕐 [{job_id}] Se ejecutará a las: {execution_time.strftime('%H:%M:%S')}")
         
         # SLEEP - aquí es donde pausamos
-        time.sleep(minutes * 60)
+        if minutes > 0:
+            time.sleep(minutes * 60)
         
         # Verificar si la tarea fue cancelada durante el sleep
         if job_id not in active_tasks:
@@ -135,24 +136,21 @@ def execute_delayed_task(email, password, device_name, action, minutes, job_id):
                 control_device_meross_iot(email, password, device_name, action, job_id)
             )
             log_message(f"🎯 [{job_id}] Resultado: {result}")
-            
-            # Actualizar estado final
-            active_tasks[job_id]["status"] = "completed"
-            active_tasks[job_id]["result"] = result
         finally:
             loop.close()
         
-        # Limpiar después de 5 minutos
-        time.sleep(300)  # 5 minutos
+        # LIMPIAR INMEDIATAMENTE después de ejecutar
         if job_id in active_tasks:
+            log_message(f"🧹 [{job_id}] Limpiando trabajo completado")
             del active_tasks[job_id]
-            log_message(f"🧹 [{job_id}] Tarea limpiada del registro")
-            
+            log_message(f"✅ [{job_id}] Trabajo eliminado de memoria")
+        
     except Exception as e:
         log_message(f"💥 [{job_id}] Error crítico: {str(e)}")
+        # Limpiar también los trabajos con error
         if job_id in active_tasks:
-            active_tasks[job_id]["status"] = "error"
-            active_tasks[job_id]["error"] = str(e)
+            log_message(f"🧹 [{job_id}] Limpiando trabajo con error")
+            del active_tasks[job_id]
 
 # ===== ENDPOINTS =====
 
