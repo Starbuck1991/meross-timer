@@ -29,14 +29,14 @@ async def control_device_meross_iot(email, password, device_name, action, job_id
         try:
             log_message(f"🔧 [{job_id}] Intento {attempt + 1}/{max_retries} - Controlando {device_name} -> {action}")
             
-            # Conectar con meross-iot
+            # Conectar con meross-iot - API corregida para v0.4.9.0
             http_api_client = await MerossHttpClient.async_from_user_password(
+                api_base_url='https://iotx-eu.meross.com',
                 email=email, 
-                password=password,
-                api_base_url='https://iotx-eu.meross.com'
+                password=password
             )
             log_message(f"✅ [{job_id}] Login exitoso con meross-iot")
-
+            
             # Manager
             manager = MerossManager(http_client=http_api_client)
             await manager.async_init()
@@ -333,8 +333,6 @@ def kodiplex_off_quick(minutes):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# ... (código anterior hasta kodiplex_on_quick) ...
-
 @app.route('/kodiplex/on/<int:minutes>', methods=['GET'])
 def kodiplex_on_quick(minutes):
     """Atajo rápido: GET /kodiplex/on/30"""
@@ -409,40 +407,62 @@ def cancel_job():
 def test_connection():
     """Probar conexión con Meross"""
     try:
+        log_message("🧪 Iniciando test-connection endpoint")
+        
         # Si es POST, verificar API key
         if request.method == 'POST':
             data = request.get_json() or {}
             api_key = data.get('api_key')
             api_key_env = os.getenv('MEROSS_API_KEY')
             
+            log_message(f"🔑 API Key recibida: {'SÍ' if api_key else 'NO'}")
+            
             if api_key_env and api_key != api_key_env:
+                log_message("❌ API Key inválida")
                 return jsonify({"status": "error", "message": "Clave API inválida"}), 401
-        
+
         email = os.getenv('MEROSS_EMAIL')
         password = os.getenv('MEROSS_PASSWORD')
         
+        log_message(f"📧 Email configurado: {'SÍ' if email else 'NO'}")
+        log_message(f"🔐 Password configurado: {'SÍ' if password else 'NO'}")
+        
         if not email or not password:
+            log_message("❌ Variables de entorno faltantes")
             return jsonify({
                 "status": "error",
                 "message": "Variables de entorno MEROSS_EMAIL o MEROSS_PASSWORD no configuradas"
             }), 500
-        
+
         # Crear job_id temporal para logs
         test_job_id = f"test_connection_{datetime.now(SPAIN_TZ).strftime('%H%M%S')}"
-        
+        log_message(f"🆔 Job ID creado: {test_job_id}")
+
         # Ejecutar test en un hilo separado para no bloquear
         def test_async():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
             try:
-                return loop.run_until_complete(test_meross_connection(email, password, test_job_id))
-            finally:
-                loop.close()
-        
+                log_message("🔄 Iniciando loop asyncio")
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    result = loop.run_until_complete(test_meross_connection(email, password, test_job_id))
+                    log_message(f"✅ Resultado obtenido: {result.get('status', 'unknown')}")
+                    return result
+                finally:
+                    loop.close()
+                    log_message("🔄 Loop asyncio cerrado")
+            except Exception as e:
+                log_message(f"💥 Error en test_async: {str(e)}")
+                return {"status": "error", "message": f"Error interno: {str(e)}"}
+
+        log_message("🚀 Ejecutando test asíncrono")
         result = test_async()
+        log_message(f"📤 Enviando respuesta: {result}")
+        
         return jsonify(result)
         
     except Exception as e:
+        log_message(f"💥 Error crítico en test_connection: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 async def test_meross_connection(email, password, job_id):
@@ -453,11 +473,11 @@ async def test_meross_connection(email, password, job_id):
     try:
         log_message(f"🧪 [{job_id}] Probando conexión con Meross...")
         
-        # Conectar
+        # Conectar - API corregida para v0.4.9.0
         http_api_client = await MerossHttpClient.async_from_user_password(
+            api_base_url='https://iotx-eu.meross.com',
             email=email, 
-            password=password,
-            api_base_url='https://iotx-eu.meross.com'
+            password=password
         )
         log_message(f"✅ [{job_id}] Login exitoso")
         
