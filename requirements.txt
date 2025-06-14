@@ -4,3 +4,4 @@ pytz==2024.1
 aiohttp==3.10.11
 setuptools==69.0.0
 importlib-metadata==6.8.0
+pycryptodome==3.19.0
