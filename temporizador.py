@@ -492,13 +492,22 @@ async def test_meross_connection(email, password, job_id):
         
         device_list = []
         for device in devices:
-            await device.async_update()
-            device_list.append({
-                "name": device.name,
-                "type": device.type,
-                "online": device.online_status,
-                "state": "on" if device.is_on() else "off"
-            })
+            try:
+                await device.async_update()
+                device_list.append({
+                    "name": device.name,
+                    "type": str(device.type),
+                    "online": getattr(device, 'online_status', True),
+                    "state": "on" if hasattr(device, 'is_on') and device.is_on() else "off"
+                })
+            except Exception as e:
+                log_message(f"⚠️ [{job_id}] Error procesando dispositivo {device.name}: {str(e)}")
+                device_list.append({
+                    "name": device.name,
+                    "type": str(device.type),
+                    "online": False,
+                    "state": "unknown"
+                })
         
         log_message(f"✅ [{job_id}] {len(devices)} dispositivos encontrados")
         
