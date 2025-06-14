@@ -365,7 +365,6 @@ def execute_delayed_task(email, password, device_name, action, minutes, job_id):
             "status": "waiting"
         }
         
-        log_message(f"⏰ [{job_id}
         log_message(f"⏰ [{job_id}] Esperando {minutes} minutos...")
         log_message(f"🕐 [{job_id}] Se ejecutará a las: {execution_time.strftime('%H:%M:%S')}")
         
