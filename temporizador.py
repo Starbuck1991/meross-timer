@@ -794,3 +794,11 @@ def debug_meross():
     except Exception as e:
         return jsonify(error=str(e)), 500
 
+# al final de temporizador.py
+if __name__ == "__main__":
+    # debug: imprime todas las rutas registradas
+    print("=== RUTAS DISPONIBLES EN FLASK ===")
+    for rule in app.url_map.iter_rules():
+        print(rule)
+    print("=================================")
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
