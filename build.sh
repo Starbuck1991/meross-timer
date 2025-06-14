@@ -1,4 +1,21 @@
 #!/bin/bash
+echo "🚀 Iniciando proceso de build..."
+
+# 1. Instalar dependencias Python
+echo "📦 Instalando dependencias de Python..."
+if [ -f "requirements.txt" ]; then
+    pip install -r requirements.txt
+    if [ $? -eq 0 ]; then
+        echo "✅ Dependencias instaladas correctamente"
+    else
+        echo "❌ Error instalando dependencias"
+        exit 1
+    fi
+else
+    echo "⚠️  Archivo requirements.txt no encontrado"
+fi
+
+# 2. Sincronizar archivos compartidos
 echo "🔄 Sincronizando archivos compartidos..."
 
 # Crear directorio de destino si no existe
@@ -21,4 +38,4 @@ else
     exit 1
 fi
 
-echo "✅ Sincronización completada"
+echo "🎉 Build completado exitosamente!"
