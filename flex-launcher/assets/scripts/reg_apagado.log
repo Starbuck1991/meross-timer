@@ -95,3 +95,130 @@
 [INFO] 15/06/2025 04:47:22 -   • Sistema: No apagado
 [INFO] 15/06/2025 04:47:22 - === VERIFICACIÓN COMPLETADA ===
 
+[INFO] 15/06/2025 04:52:10 - === INICIANDO VERIFICACIÓN DE APAGADO AUTOMÁTICO ===
+[INFO] 15/06/2025 04:52:10 - Versión del script: 1.1.0
+[INFO] 15/06/2025 04:52:10 - Configuración: Inactividad 2 min, Red 10000 KB en 2 min
+[INFO] 15/06/2025 04:52:10 - Modo de ejecución: Interactivo
+[INFO] 15/06/2025 04:52:10 - Limpieza diaria no requerida: última limpieza en 14/06/2025 20:43:06
+[INFO] 15/06/2025 04:52:15 - [KEEPALIVE] Servicio activo (4.16 seg)
+[INFO] 15/06/2025 04:52:18 - [APIKEY] Clave API validada correctamente
+[INFO] 15/06/2025 04:52:18 - Tiempo de inactividad: 4.23 minutos (254 segundos)
+[WARN] 15/06/2025 04:52:20 - Historial muy antiguo (5 min). Asumiendo tráfico cero
+[INFO] 15/06/2025 04:52:20 - Baja actividad de red: 0 KB en 2 min (límite: 10000 KB)
+[INFO] 15/06/2025 04:52:20 - No se encontraron procesos críticos
+[INFO] 15/06/2025 04:52:20 - Advertencia de apagado mostrada (30 segundos)
+[INFO] 15/06/2025 04:52:50 - Apagado cancelado por actividad del usuario
+[INFO] 15/06/2025 04:52:50 - Apagado cancelado por actividad del usuario
+[INFO] 15/06/2025 04:52:50 - Resumen:
+[INFO] 15/06/2025 04:52:50 -   • Inactividad: 4.23 minutos (≥2 min: Se cumple)
+[INFO] 15/06/2025 04:52:50 -   • Red: 0 KB (≤10000 KB: Se cumple)
+[INFO] 15/06/2025 04:52:50 -   • Procesos críticos: 0 (Ninguno: Se cumple)
+[INFO] 15/06/2025 04:52:50 -   • KodiPlex: No programado
+[INFO] 15/06/2025 04:52:50 -   • Sistema: No apagado
+[INFO] 15/06/2025 04:52:50 - === VERIFICACIÓN COMPLETADA ===
+
+[INFO] 15/06/2025 04:57:09 - === INICIANDO VERIFICACIÓN DE APAGADO AUTOMÁTICO ===
+[INFO] 15/06/2025 04:57:10 - Versión del script: 1.1.0
+[INFO] 15/06/2025 04:57:10 - Configuración: Inactividad 2 min, Red 10000 KB en 2 min
+[INFO] 15/06/2025 04:57:10 - Modo de ejecución: Interactivo
+[INFO] 15/06/2025 04:57:10 - Limpieza diaria no requerida: última limpieza en 14/06/2025 20:43:06
+[INFO] 15/06/2025 04:57:14 - [KEEPALIVE] Servicio activo (4.13 seg)
+[INFO] 15/06/2025 04:57:17 - [APIKEY] Clave API validada correctamente
+[INFO] 15/06/2025 04:57:17 - Tiempo de inactividad: 2.62 minutos (157 segundos)
+[WARN] 15/06/2025 04:57:19 - Historial muy antiguo (5 min). Asumiendo tráfico cero
+[INFO] 15/06/2025 04:57:19 - Baja actividad de red: 0 KB en 2 min (límite: 10000 KB)
+[INFO] 15/06/2025 04:57:19 - No se encontraron procesos críticos
+[INFO] 15/06/2025 04:57:19 - Advertencia de apagado mostrada (30 segundos)
+[INFO] 15/06/2025 04:57:49 - Iniciando secuencia de apagado
+[INFO] 15/06/2025 04:57:49 - Programando apagado de KodiPlex en 1 minuto(s)
+[INFO] 15/06/2025 04:57:52 - KodiPlex programado correctamente
+[INFO] 15/06/2025 04:57:53 - Resumen:
+[INFO] 15/06/2025 04:57:53 -   • Inactividad: 2.62 minutos (≥2 min: Se cumple)
+[INFO] 15/06/2025 04:57:53 -   • Red: 0 KB (≤10000 KB: Se cumple)
+[INFO] 15/06/2025 04:57:53 -   • Procesos críticos: 0 (Ninguno: Se cumple)
+[INFO] 15/06/2025 04:57:53 -   • KodiPlex: Programado correctamente
+[INFO] 15/06/2025 04:57:53 -   • Sistema: Apagado iniciado
+[INFO] 15/06/2025 04:57:53 - Iniciando apagado inmediato del PC
+[INFO] 15/06/2025 04:57:53 - === VERIFICACIÓN COMPLETADA ===
+
+[INFO] 15/06/2025 05:01:27 - === INICIANDO VERIFICACIÓN DE APAGADO AUTOMÁTICO ===
+[INFO] 15/06/2025 05:01:27 - Versión del script: 1.1.0
+[INFO] 15/06/2025 05:01:27 - Configuración: Inactividad 2 min, Red 10000 KB en 2 min
+[INFO] 15/06/2025 05:01:27 - Modo de ejecución: Interactivo
+[INFO] 15/06/2025 05:01:31 - Limpieza diaria no requerida: última limpieza en 14/06/2025 20:43:06
+[INFO] 15/06/2025 05:01:42 - [KEEPALIVE] Servicio activo (10.92 seg)
+[INFO] 15/06/2025 05:01:46 - [APIKEY] Clave API validada correctamente
+[INFO] 15/06/2025 05:01:46 - Tiempo de inactividad: 0.67 minutos (40 segundos)
+[WARN] 15/06/2025 05:01:49 - Historial muy antiguo (4.5 min). Asumiendo tráfico cero
+[INFO] 15/06/2025 05:01:49 - Baja actividad de red: 0 KB en 2 min (límite: 10000 KB)
+[INFO] 15/06/2025 05:01:49 - No se encontraron procesos críticos
+[INFO] 15/06/2025 05:01:49 - Condiciones no cumplidas. Razones: Inactividad=No se cumple
+[INFO] 15/06/2025 05:01:49 - Resumen:
+[INFO] 15/06/2025 05:01:49 -   • Inactividad: 0.67 minutos (≥2 min: No se cumple)
+[INFO] 15/06/2025 05:01:49 -   • Red: 0 KB (≤10000 KB: Se cumple)
+[INFO] 15/06/2025 05:01:49 -   • Procesos críticos: 0 (Ninguno: Se cumple)
+[INFO] 15/06/2025 05:01:49 -   • KodiPlex: No programado
+[INFO] 15/06/2025 05:01:49 -   • Sistema: No apagado
+[INFO] 15/06/2025 05:01:49 - === VERIFICACIÓN COMPLETADA ===
+
+[INFO] 15/06/2025 05:03:39 - === INICIANDO VERIFICACIÓN DE APAGADO AUTOMÁTICO ===
+[INFO] 15/06/2025 05:03:39 - Versión del script: 1.1.0
+[INFO] 15/06/2025 05:03:39 - Configuración: Inactividad 2 min, Red 10000 KB en 2 min
+[INFO] 15/06/2025 05:03:39 - Modo de ejecución: Interactivo
+[INFO] 15/06/2025 05:03:39 - Limpieza diaria no requerida: última limpieza en 14/06/2025 20:43:06
+[INFO] 15/06/2025 05:03:42 - [KEEPALIVE] Servicio activo (3.08 seg)
+[INFO] 15/06/2025 05:03:44 - [APIKEY] Clave API validada correctamente
+[INFO] 15/06/2025 05:03:44 - Tiempo de inactividad: 0.1 minutos (6 segundos)
+[INFO] 15/06/2025 05:03:46 - Actividad de red detectada: 13199.89 KB en 2 min (exceso: 3199.89 KB)
+[INFO] 15/06/2025 05:03:46 - No se encontraron procesos críticos
+[INFO] 15/06/2025 05:03:46 - Condiciones no cumplidas. Razones: Inactividad=No se cumple, Red=No se cumple
+[INFO] 15/06/2025 05:03:46 - Resumen:
+[INFO] 15/06/2025 05:03:46 -   • Inactividad: 0.1 minutos (≥2 min: No se cumple)
+[INFO] 15/06/2025 05:03:46 -   • Red: 13199.89 KB (≤10000 KB: No se cumple)
+[INFO] 15/06/2025 05:03:46 -   • Procesos críticos: 0 (Ninguno: Se cumple)
+[INFO] 15/06/2025 05:03:46 -   • KodiPlex: No programado
+[INFO] 15/06/2025 05:03:46 -   • Sistema: No apagado
+[INFO] 15/06/2025 05:03:46 - === VERIFICACIÓN COMPLETADA ===
+
+[INFO] 15/06/2025 05:06:13 - === INICIANDO VERIFICACIÓN DE APAGADO AUTOMÁTICO ===
+[INFO] 15/06/2025 05:06:13 - Versión del script: 1.2.0
+[INFO] 15/06/2025 05:06:13 - Configuración: Inactividad 2 min, Red 10000 KB en 2 min
+[INFO] 15/06/2025 05:06:14 - Modo de ejecución: Interactivo
+[INFO] 15/06/2025 05:06:14 - Limpieza diaria no requerida: última limpieza en 14/06/2025 20:43:06
+[INFO] 15/06/2025 05:06:17 - [KEEPALIVE] Servicio activo (3.1 seg)
+[INFO] 15/06/2025 05:06:19 - [APIKEY] Clave API validada correctamente
+[INFO] 15/06/2025 05:06:19 - Tiempo de inactividad: 1.48 minutos (89 segundos)
+[INFO] 15/06/2025 05:06:21 - Calculando desde entrada reciente (2.6 min): 2992.62 KB
+[INFO] 15/06/2025 05:06:21 - Baja actividad de red: 2992.62 KB en 2 min (límite: 10000 KB)
+[INFO] 15/06/2025 05:06:21 - No se encontraron procesos críticos
+[INFO] 15/06/2025 05:06:21 - Condiciones no cumplidas. Razones: Inactividad=No se cumple
+[INFO] 15/06/2025 05:06:21 - Resumen:
+[INFO] 15/06/2025 05:06:21 -   • Inactividad: 1.48 minutos (≥2 min: No se cumple)
+[INFO] 15/06/2025 05:06:21 -   • Red: 2992.62 KB (≤10000 KB: Se cumple)
+[INFO] 15/06/2025 05:06:21 -   • Procesos críticos: 0 (Ninguno: Se cumple)
+[INFO] 15/06/2025 05:06:21 -   • KodiPlex: No programado
+[INFO] 15/06/2025 05:06:21 -   • Sistema: No apagado
+[INFO] 15/06/2025 05:06:21 - === VERIFICACIÓN COMPLETADA ===
+
+[INFO] 15/06/2025 05:11:13 - === INICIANDO VERIFICACIÓN DE APAGADO AUTOMÁTICO ===
+[INFO] 15/06/2025 05:11:13 - Versión del script: 1.2.0
+[INFO] 15/06/2025 05:11:13 - Configuración: Inactividad 2 min, Red 10000 KB en 2 min
+[INFO] 15/06/2025 05:11:13 - Modo de ejecución: Interactivo
+[INFO] 15/06/2025 05:11:13 - Limpieza diaria no requerida: última limpieza en 14/06/2025 20:43:06
+[INFO] 15/06/2025 05:11:16 - [KEEPALIVE] Servicio activo (3.07 seg)
+[INFO] 15/06/2025 05:11:19 - [APIKEY] Clave API validada correctamente
+[INFO] 15/06/2025 05:11:19 - Tiempo de inactividad: 6.48 minutos (389 segundos)
+[INFO] 15/06/2025 05:11:20 - Historial moderadamente antiguo (5 min). Tráfico escalado: 235.35 KB
+[INFO] 15/06/2025 05:11:20 - Baja actividad de red: 235.35 KB en 2 min (límite: 10000 KB)
+[INFO] 15/06/2025 05:11:20 - No se encontraron procesos críticos
+[INFO] 15/06/2025 05:11:20 - Advertencia de apagado mostrada (30 segundos)
+[INFO] 15/06/2025 05:11:50 - Apagado cancelado por actividad del usuario
+[INFO] 15/06/2025 05:11:50 - Apagado cancelado por actividad del usuario
+[INFO] 15/06/2025 05:11:50 - Resumen:
+[INFO] 15/06/2025 05:11:51 -   • Inactividad: 6.48 minutos (≥2 min: Se cumple)
+[INFO] 15/06/2025 05:11:51 -   • Red: 235.35 KB (≤10000 KB: Se cumple)
+[INFO] 15/06/2025 05:11:51 -   • Procesos críticos: 0 (Ninguno: Se cumple)
+[INFO] 15/06/2025 05:11:51 -   • KodiPlex: No programado
+[INFO] 15/06/2025 05:11:51 -   • Sistema: No apagado
+[INFO] 15/06/2025 05:11:51 - === VERIFICACIÓN COMPLETADA ===
+

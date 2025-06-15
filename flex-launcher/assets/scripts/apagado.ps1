@@ -1,7 +1,7 @@
 ﻿# apagado.ps1
 # Script para apagar automáticamente el equipo tras un período de inactividad y bajo tráfico de red.
 # Uso: .\apagado.ps1 [-ApiKey "Apollo1991!"] [-DebugMode]
-# Versión: 1.1.0
+# Versión: 1.2.0
 
 # Definir parámetros y versión al inicio
 param (
@@ -11,7 +11,7 @@ param (
     [switch]$DebugMode # Modo depuración para logs adicionales
 )
 
-$ScriptVersion = "1.1.0" # Número de versión del script
+$ScriptVersion = "1.2.0" # Número de versión del script
 
 # Configurar codificación UTF-8 para caracteres especiales
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -21,9 +21,9 @@ $OutputEncoding = [System.Text.Encoding]::UTF8
 try { chcp 65001 | Out-Null } catch { }
 
 # Configuración global
-$IdleThresholdMinutes = 2  # Minutos de inactividad antes de apagar
+$IdleThresholdMinutes = 60  # Minutos de inactividad antes de apagar
 $IdleThresholdSeconds = $IdleThresholdMinutes * 60
-$NetworkIntervalMinutes = 2  # Intervalo para medir tráfico de red
+$NetworkIntervalMinutes = 60  # Intervalo para medir tráfico de red
 $NetworkThresholdKB = 10000  # Umbral de tráfico de red en KB
 $NetworkThresholdBytes = $NetworkThresholdKB * 1024  # Convertir KB a bytes
 $ShutdownWarningSeconds = 30  # Segundos de aviso antes del apagado
@@ -34,6 +34,21 @@ $MerossMaxRetries = 3  # Reintentos para API Meross
 $MaxApiKeyAttempts = 3  # Intentos para clave API en modo manual
 $KodiPlexShutdownDelayMinutes = 1  # Retraso para apagado de KodiPlex (60 segundos)
 $PCShutdownDelaySeconds = 0  # Apagado inmediato del PC
+
+# Configuración para manejo de historial antiguo
+$script:NetworkHistoryConfig = @{
+    # Multiplicadores basados en el intervalo configurado
+    ModeratelyOldThreshold = 2      # 2x el intervalo = moderadamente antiguo
+    VeryOldThreshold = 4            # 4x el intervalo = muy antiguo
+    MaxAgeForCalculation = 60       # Máximo 60 minutos para cualquier cálculo
+    
+    # Factores de estimación cuando no hay datos exactos
+    ConservativeEstimationFactor = 0.02    # 2% para estimaciones conservadoras
+    MinimalEstimationFactor = 0.01         # 1% para estimaciones mínimas
+    
+    # Umbral de fluctuación para detectar cambios menores
+    MinorFluctuationThreshold = 0.05       # 5% del valor anterior
+}
 
 # Procesos críticos que impiden el apagado
 $CriticalProcesses = @("Teams", "Zoom", "obs64", "StreamlabsOBS", "chrome", "firefox")
@@ -94,11 +109,11 @@ function Flush-LogBuffer {
     $retryCount = 0
     $success = $false
     
-    # Añadir líneas en blanco al búfer si es el final de un registro
+    # Añadir una línea en blanco al búfer si es el final de un registro
     if ($LogBuffer -like "*=== VERIFICACIÓN COMPLETADA ===*") {
-        $script:LogBuffer += ""
+        $script:LogBuffer += ""  # Añade solo una línea en blanco
         if ($DebugMode) {
-            Write-Host "[DEBUG] $((Get-Date -Format 'dd/MM/yyyy HH:mm:ss')) - Añadidas dos líneas en blanco al búfer"
+            Write-Host "[DEBUG] $((Get-Date -Format 'dd/MM/yyyy HH:mm:ss')) - Añadida una línea en blanco al búfer"
         }
     }
     
@@ -712,36 +727,74 @@ function Get-NetworkTrafficInPeriod {
             $LastEntry = $NetworkHistory | Sort-Object Timestamp -Descending | Select-Object -First 1
             $TimeDiff = ($CurrentTime - $LastEntry.Timestamp).TotalMinutes
             
-            if ($TimeDiff -gt ($IntervalMinutes * 2)) {
-                # Si es muy antigua, asumir tráfico cero
-                Write-Log "Historial muy antiguo ($([math]::Round($TimeDiff, 1)) min). Asumiendo tráfico cero" "WARN"
-                return [uint64]0
-            }
-            
-            # Verificar si hubo reinicio real
-            if (Test-CounterReset -CurrentBytes $CurrentBytes -RecentHistory @($LastEntry)) {
-                Write-Log "Reinicio de contadores detectado. Usando valor actual: $([math]::Round($CurrentBytes/1024, 2)) KB" "INFO"
-                return [uint64]$CurrentBytes
-            }
-            
-            # Cálculo normal con entrada antigua
-            if ($CurrentBytes -ge $LastEntry.Bytes) {
-                $TrafficBytes = $CurrentBytes - $LastEntry.Bytes
-                Write-Log "Calculando desde entrada antigua ($([math]::Round($TimeDiff, 1)) min): $([math]::Round($TrafficBytes/1024, 2)) KB" "INFO"
-                return [uint64]$TrafficBytes
-            } else {
-                # Posible fluctuación, usar diferencia absoluta si es pequeña
-                $Diff = $LastEntry.Bytes - $CurrentBytes
-                if ($Diff -lt ($LastEntry.Bytes * 0.05)) {  # Menos del 5%
-                    Write-Log "Fluctuación menor detectada. Asumiendo tráfico mínimo" "DEBUG"
-                    return [uint64]($CurrentBytes * 0.01)  # 1% como estimación
+            # Estrategia basada en la antigüedad del historial
+            if ($TimeDiff -gt ($IntervalMinutes * $script:NetworkHistoryConfig.VeryOldThreshold)) {
+                # Historial muy antiguo (4x el intervalo) - estrategias conservadoras
+                if ($TimeDiff -gt $script:NetworkHistoryConfig.MaxAgeForCalculation) {
+                    # Más de MaxAgeForCalculation minutos - asumir tráfico cero (sistema probablemente inactivo)
+                    Write-Log "Historial extremadamente antiguo ($([math]::Round($TimeDiff, 1)) min). Sistema probablemente inactivo - tráfico cero" "INFO"
+                    return [uint64]0
                 } else {
-                    Write-Log "Posible reinicio significativo. Usando valor actual" "WARN"
+                    # Entre VeryOldThreshold y MaxAgeForCalculation - usar estimación basada en bytes actuales
+                    $EstimatedTraffic = [uint64]($CurrentBytes * $script:NetworkHistoryConfig.ConservativeEstimationFactor)
+                    Write-Log "Historial muy antiguo ($([math]::Round($TimeDiff, 1)) min). Estimación conservadora: $([math]::Round($EstimatedTraffic/1024, 2)) KB" "WARN"
+                    return $EstimatedTraffic
+                }
+            }
+            elseif ($TimeDiff -gt ($IntervalMinutes * $script:NetworkHistoryConfig.ModeratelyOldThreshold)) {
+                # Historial moderadamente antiguo (2-4x el intervalo)
+                # Verificar si hubo reinicio real antes de calcular
+                if (Test-CounterReset -CurrentBytes $CurrentBytes -RecentHistory @($LastEntry)) {
+                    Write-Log "Reinicio de contadores detectado (historial moderadamente antiguo). Usando valor actual: $([math]::Round($CurrentBytes/1024, 2)) KB" "INFO"
                     return [uint64]$CurrentBytes
+                }
+                
+                # Cálculo proporcional al tiempo transcurrido
+                if ($CurrentBytes -ge $LastEntry.Bytes) {
+                    $TotalTraffic = $CurrentBytes - $LastEntry.Bytes
+                    # Escalar el tráfico al período deseado
+                    $ScaledTraffic = [uint64]($TotalTraffic * ($IntervalMinutes / $TimeDiff))
+                    Write-Log "Historial moderadamente antiguo ($([math]::Round($TimeDiff, 1)) min). Tráfico escalado: $([math]::Round($ScaledTraffic/1024, 2)) KB" "INFO"
+                    return $ScaledTraffic
+                } else {
+                    # Fluctuación con historial moderadamente antiguo
+                    $Diff = $LastEntry.Bytes - $CurrentBytes
+                    if ($Diff -lt ($LastEntry.Bytes * $script:NetworkHistoryConfig.MinorFluctuationThreshold)) {
+                        Write-Log "Fluctuación menor detectada (historial moderado). Estimación mínima: $([math]::Round(($CurrentBytes * $script:NetworkHistoryConfig.MinimalEstimationFactor)/1024, 2)) KB" "DEBUG"
+                        return [uint64]($CurrentBytes * $script:NetworkHistoryConfig.MinimalEstimationFactor)
+                    } else {
+                        Write-Log "Posible reinicio significativo (historial moderado). Usando valor actual" "WARN"
+                        return [uint64]$CurrentBytes
+                    }
+                }
+            }
+            else {
+                # Historial reciente pero fuera del período exacto (1-2x el intervalo)
+                # Verificar si hubo reinicio real
+                if (Test-CounterReset -CurrentBytes $CurrentBytes -RecentHistory @($LastEntry)) {
+                    Write-Log "Reinicio de contadores detectado (historial reciente). Usando valor actual: $([math]::Round($CurrentBytes/1024, 2)) KB" "INFO"
+                    return [uint64]$CurrentBytes
+                }
+                
+                # Cálculo normal con entrada reciente
+                if ($CurrentBytes -ge $LastEntry.Bytes) {
+                    $TrafficBytes = $CurrentBytes - $LastEntry.Bytes
+                    Write-Log "Calculando desde entrada reciente ($([math]::Round($TimeDiff, 1)) min): $([math]::Round($TrafficBytes/1024, 2)) KB" "INFO"
+                    return [uint64]$TrafficBytes
+                } else {
+                    # Posible fluctuación menor
+                    $Diff = $LastEntry.Bytes - $CurrentBytes
+                    if ($Diff -lt ($LastEntry.Bytes * $script:NetworkHistoryConfig.MinorFluctuationThreshold)) {
+                        Write-Log "Fluctuación menor detectada (historial reciente). Estimación mínima: $([math]::Round(($CurrentBytes * $script:NetworkHistoryConfig.MinimalEstimationFactor)/1024, 2)) KB" "DEBUG"
+                        return [uint64]($CurrentBytes * $script:NetworkHistoryConfig.MinimalEstimationFactor)
+                    } else {
+                        Write-Log "Posible reinicio significativo (historial reciente). Usando valor actual" "WARN"
+                        return [uint64]$CurrentBytes
+                    }
                 }
             }
         } else {
-            Write-Log "Sin historial disponible. Asumiendo tráfico cero" "INFO"
+            Write-Log "Sin historial disponible. Primera ejecución - tráfico cero" "INFO"
             return [uint64]0
         }
     }
