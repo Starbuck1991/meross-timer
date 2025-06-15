@@ -1,4 +1,5 @@
-﻿param(
+﻿# control-meross.ps1
+param(
     [Parameter(Mandatory=$true, Position=0)]
     [ValidateSet("status", "test", "on", "off", "timer-on", "timer-off", "jobs", "cancel", "help")]
     [string]$Action,
